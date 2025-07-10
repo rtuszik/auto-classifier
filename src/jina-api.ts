@@ -66,9 +66,23 @@ export class JinaAI {
         } catch (e) {
             // Keep errorDetails as text if not JSON
         }
-        const errorMessage = `Jina AI API Error: ${response.status} - ${errorDetails}`;
-        console.error(errorMessage);
-        throw new Error(errorMessage);
+        
+        // More specific error messages
+        let userFriendlyMessage = `Jina AI API Error (${response.status})`;
+        if (response.status === 401) {
+          userFriendlyMessage = "Invalid Jina AI API key. Please check your API key in settings.";
+        } else if (response.status === 403) {
+          userFriendlyMessage = "Jina AI API access denied. Please check your API key permissions.";
+        } else if (response.status === 429) {
+          userFriendlyMessage = "Jina AI API rate limit exceeded. Please try again later.";
+        } else if (response.status === 500) {
+          userFriendlyMessage = "Jina AI server error. Please try again later.";
+        } else {
+          userFriendlyMessage = `Jina AI API Error: ${errorDetails}`;
+        }
+        
+        console.error(`Jina AI API Error: ${response.status} - ${errorDetails}`);
+        throw new Error(userFriendlyMessage);
       }
 
       const responseData: JinaAPIResponse = response.json;

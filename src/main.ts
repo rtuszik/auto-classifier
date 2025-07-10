@@ -103,9 +103,14 @@ export default class AutoClassifierPlugin extends Plugin {
 		const currentEngine = this.settings.classifierEngine;
 
 		// ------- [API Key check] -------
+		// Note: Local AI (Ollama, LocalAI) usually doesn't require API keys
 		if (currentEngine === ClassifierEngine.ChatGPT && !this.settings.apiKey) {
-			new Notice(`⛔ ${this.manifest.name}: ChatGPT API Key is missing.`);
-			return null;
+			// Check if it's likely a local AI setup (localhost or local IP)
+			const baseUrl = this.settings.baseURL.toLowerCase();
+			if (!baseUrl.includes('localhost') && !baseUrl.includes('127.0.0.1') && !baseUrl.includes('192.168.')) {
+				new Notice(`⛔ ${this.manifest.name}: API Key is missing. Required for most cloud APIs.`);
+				return null;
+			}
 		}
 		if (currentEngine === ClassifierEngine.JinaAI && !this.settings.jinaApiKey) {
 			new Notice(`⛔ ${this.manifest.name}: Jina AI API Key is missing.`);
@@ -117,6 +122,12 @@ export default class AutoClassifierPlugin extends Plugin {
 		// reference check
 		if (this.settings.commandOption.useRef && (!refs || refs.length == 0)) {
 			new Notice(`⛔ ${this.manifest.name}: no reference tags`);
+			return null;
+		}
+
+		// Jina AI has a limit of 256 classes for zero-shot classification
+		if (currentEngine === ClassifierEngine.JinaAI && refs.length > 256) {
+			new Notice(`⛔ ${this.manifest.name}: Jina AI supports maximum 256 reference tags, but ${refs.length} were provided. Please reduce the number of tags.`);
 			return null;
 		}
 
@@ -152,6 +163,7 @@ export default class AutoClassifierPlugin extends Plugin {
 		// ------- [API Processing] -------
 		try {
 			let outputs: string[] = [];
+			let jinaResponse: JinaAPIResponse | null = null;
 
 			if (currentEngine === ClassifierEngine.ChatGPT) {
 				const responseRaw = await ChatGPT.callAPI(
@@ -189,7 +201,7 @@ export default class AutoClassifierPlugin extends Plugin {
 					return null;
 				}
 			} else if (currentEngine === ClassifierEngine.JinaAI) {
-				const jinaResponse: JinaAPIResponse = await JinaAI.callAPI(
+				jinaResponse = await JinaAI.callAPI(
 					this.settings.jinaApiKey,
 					this.settings.jinaBaseURL,
 					this.settings.commandOption.model || 'jina-embeddings-v3', // Ensure model is passed
@@ -261,11 +273,18 @@ export default class AutoClassifierPlugin extends Plugin {
 					);
 				}
 			}
-			new Notice(`✅ ${this.manifest.name}: classified with ${limitedOutputs.length} tags using ${ClassifierEngine[currentEngine]}.`);
+			// Show token usage if available
+			let tokenInfo = "";
+			if (currentEngine === ClassifierEngine.JinaAI && jinaResponse && jinaResponse.usage) {
+				tokenInfo = ` (${jinaResponse.usage.total_tokens} tokens used)`;
+			}
+			const engineName = currentEngine === ClassifierEngine.ChatGPT ? "OpenAI-compatible API" : "Jina AI";
+			new Notice(`✅ ${this.manifest.name}: classified with ${limitedOutputs.length} tags using ${engineName}${tokenInfo}.`);
 
 		} catch (error: any) {
+			const engineName = currentEngine === ClassifierEngine.ChatGPT ? "OpenAI-compatible API" : "Jina AI";
 			new Notice(`⛔ ${this.manifest.name} API Error: ${error.message || error}`);
-			console.error(`${ClassifierEngine[currentEngine]} API Error:`, error);
+			console.error(`${engineName} API Error:`, error);
 			return null;
 		}
 	}

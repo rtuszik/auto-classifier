@@ -55,7 +55,7 @@ export interface CommandOption {
     prmpt_template: string;
     model: string;
     max_tokens: number;
-ㅋ    max_suggestions: number;
+    max_suggestions: number;
 }
 
 
@@ -141,11 +141,23 @@ export class AutoClassifierSettingTab extends PluginSettingTab {
             .setDesc('Select the classification engine to use.')
             .addDropdown((dropdown) => {
                 dropdown
-                    .addOption(String(ClassifierEngine.ChatGPT), "ChatGPT")
-                    .addOption(String(ClassifierEngine.JinaAI), "JinaAI")
+                    .addOption(String(ClassifierEngine.ChatGPT), "OpenAI-compatible API")
+                    .addOption(String(ClassifierEngine.JinaAI), "Jina AI Classifier")
                     .setValue(String(this.plugin.settings.classifierEngine))
                     .onChange(async (value) => {
                         this.plugin.settings.classifierEngine = parseInt(value) as ClassifierEngine;
+                        
+                        // Auto-set appropriate default models
+                        if (this.plugin.settings.classifierEngine === ClassifierEngine.ChatGPT) {
+                            if (!commandOption.model || commandOption.model === 'jina-embeddings-v3') {
+                                commandOption.model = 'gpt-3.5-turbo';
+                            }
+                        } else if (this.plugin.settings.classifierEngine === ClassifierEngine.JinaAI) {
+                            if (!commandOption.model || commandOption.model === 'gpt-3.5-turbo') {
+                                commandOption.model = 'jina-embeddings-v3';
+                            }
+                        }
+                        
                         await this.plugin.saveSettings();
                         this.display(); // Re-render settings to show/hide relevant fields
                     });
@@ -154,8 +166,8 @@ export class AutoClassifierSettingTab extends PluginSettingTab {
         // Conditional API Settings
         if (this.plugin.settings.classifierEngine === ClassifierEngine.ChatGPT) {
             new Setting(containerEl)
-                .setName('ChatGPT API Base URL')
-                .setDesc('Optional: Set a different base URL for ChatGPT API calls (e.g. for proxies)')
+                .setName('API Base URL')
+                .setDesc('Base URL for OpenAI-compatible API calls')
                 .addText((text) =>
                     text
                         .setPlaceholder('https://api.openai.com/v1')
@@ -165,10 +177,21 @@ export class AutoClassifierSettingTab extends PluginSettingTab {
                             this.plugin.saveSettings();
                         })
                 );
+            
+            const baseUrlSetting = containerEl.createDiv();
+            baseUrlSetting.createEl('div', { text: 'Common configurations:' });
+            baseUrlSetting.createEl('div', { text: '• OpenAI: https://api.openai.com/v1' });
+            baseUrlSetting.createEl('div', { text: '• Ollama: http://localhost:11434/v1' });
+            baseUrlSetting.createEl('div', { text: '• LocalAI: http://localhost:8080/v1' });
+            baseUrlSetting.createEl('div', { text: '• Groq: https://api.groq.com/openai/v1' });
+            baseUrlSetting.style.marginLeft = '20px';
+            baseUrlSetting.style.fontSize = '0.9em';
+            baseUrlSetting.style.color = 'var(--text-muted)';
+            baseUrlSetting.style.marginBottom = '10px';
 
             new Setting(containerEl)
-                .setName('ChatGPT Model')
-                .setDesc("ID of the ChatGPT model to use. See https://platform.openai.com/docs/models")
+                .setName('Model')
+                .setDesc("Model ID to use for classification")
                 .addText((text) =>
                     text
                         .setPlaceholder('gpt-3.5-turbo')
@@ -178,21 +201,32 @@ export class AutoClassifierSettingTab extends PluginSettingTab {
                             await this.plugin.saveSettings();
                         })
                 );
+            
+            const modelSetting = containerEl.createDiv();
+            modelSetting.createEl('div', { text: 'Common model examples:' });
+            modelSetting.createEl('div', { text: '• OpenAI: gpt-4o, gpt-4o-mini, gpt-4.1, ...' });
+            modelSetting.createEl('div', { text: '• Ollama: llama3, mistral, phi3, qwen2, ...' });
+            modelSetting.createEl('div', { text: '• LocalAI: Use model names from your setup' });
+            modelSetting.createEl('div', { text: '• Groq: llama-3.1-8b-instant, mixtral-8x7b-32768' });
+            modelSetting.style.marginLeft = '20px';
+            modelSetting.style.fontSize = '0.9em';
+            modelSetting.style.color = 'var(--text-muted)';
+            modelSetting.style.marginBottom = '10px';
 
             const apiKeySetting = new Setting(containerEl)
-                .setName('ChatGPT API Key')
+                .setName('API Key')
                 .setDesc('')
                 .addText((text) =>
                     text
-                        .setPlaceholder('API key')
+                        .setPlaceholder('API key (leave empty for local AI)')
                         .setValue(this.plugin.settings.apiKey)
                         .onChange((value) => {
                             this.plugin.settings.apiKey = value;
                             this.plugin.saveSettings();
                         })
                 )
-            apiKeySetting.descEl.createSpan({ text: 'Enter your ChatGPT API key. If you don\'t have one yet, you can create it at ' });
-            apiKeySetting.descEl.createEl('a', { href: 'https://platform.openai.com/account/api-keys', text: 'here' })
+            apiKeySetting.descEl.createSpan({ text: 'Enter your API key. Required for OpenAI, Groq, etc. Leave empty for local AI (Ollama, LocalAI). ' });
+            apiKeySetting.descEl.createEl('a', { href: 'https://platform.openai.com/account/api-keys', text: 'Get OpenAI API key' })
             const apiTestMessageEl = document.createElement('div');
             apiKeySetting.descEl.appendChild(apiTestMessageEl);
 
@@ -239,7 +273,7 @@ export class AutoClassifierSettingTab extends PluginSettingTab {
             // For now, we'll reuse commandOption.model but default it appropriately.
             new Setting(containerEl)
                 .setName('Jina AI Model')
-                .setDesc("ID of the Jina AI model to use (e.g., jina-embeddings-v3).")
+                .setDesc("ID of the Jina AI model to use. Default: jina-embeddings-v3 (supports 8192 tokens, 256 classes).")
                 .addText((text) =>
                     text
                         .setPlaceholder('jina-embeddings-v3')
@@ -262,7 +296,9 @@ export class AutoClassifierSettingTab extends PluginSettingTab {
                             this.plugin.saveSettings();
                         })
                 );
-            jinaApiKeySetting.descEl.createSpan({ text: 'Enter your Jina AI API key.' });
+            jinaApiKeySetting.descEl.createSpan({ text: 'Enter your Jina AI API key. Get a free API key (10M tokens) at ' });
+            jinaApiKeySetting.descEl.createEl('a', { href: 'https://jina.ai/', text: 'jina.ai' });
+            jinaApiKeySetting.descEl.createSpan({ text: '. No account creation often required.' });
             const jinaApiTestMessageEl = document.createElement('div');
             jinaApiKeySetting.descEl.appendChild(jinaApiTestMessageEl);
 
@@ -275,17 +311,24 @@ export class AutoClassifierSettingTab extends PluginSettingTab {
                         jinaApiTestMessageEl.style.color = 'var(--text-normal)';
                         try {
                             // Use a simple test case
-                            await JinaAI.callAPI(
+                            const response = await JinaAI.callAPI(
                                 this.plugin.settings.jinaApiKey,
                                 this.plugin.settings.jinaBaseURL,
                                 commandOption.model || 'jina-embeddings-v3', // Fallback to default if model is not set
-                                ['This is a test sentence.'],
+                                ['This is a test sentence for classification.'],
                                 ['positive', 'negative', 'neutral']
                             );
-                            jinaApiTestMessageEl.setText('Success! Jina AI API working.');
+                            
+                            // Show token usage if available
+                            let tokenInfo = "";
+                            if (response.usage && response.usage.total_tokens) {
+                                tokenInfo = ` (${response.usage.total_tokens} tokens used)`;
+                            }
+                            
+                            jinaApiTestMessageEl.setText(`Success! Jina AI API working${tokenInfo}.`);
                             jinaApiTestMessageEl.style.color = 'var(--success-color)';
                         } catch (error: any) {
-                            jinaApiTestMessageEl.setText(`Error: Jina AI API is not working. ${error.message}`);
+                            jinaApiTestMessageEl.setText(`Error: ${error.message}`);
                             jinaApiTestMessageEl.style.color = 'var(--warning-color)';
                             console.error("Jina AI API Test Error:", error);
                         }
@@ -383,7 +426,11 @@ export class AutoClassifierSettingTab extends PluginSettingTab {
                     cb.setButtonText('View Reference Tags')
                         .onClick(async () => {
                             const tags = commandOption.refs ?? [];
-                            new Notice(`${tags.join('\n')}`);
+                            let message = `${tags.join('\n')}`;
+                            if (this.plugin.settings.classifierEngine === ClassifierEngine.JinaAI && tags.length > 256) {
+                                message += `\n\n⚠️ Warning: Jina AI supports maximum 256 tags, but ${tags.length} were found. Please reduce the number of tags.`;
+                            }
+                            new Notice(message);
                         });
                 });
         }
@@ -541,11 +588,12 @@ export class AutoClassifierSettingTab extends PluginSettingTab {
                     })
             );
 
-        // Conditional Advanced Settings for ChatGPT
+        // Conditional Advanced Settings for OpenAI-compatible API
         if (this.plugin.settings.classifierEngine === ClassifierEngine.ChatGPT) {
             // Toggle custom rule
             new Setting(containerEl)
-                .setName('Use Custom Request Template (ChatGPT)')
+                .setName('Use Custom Request Template')
+                .setDesc('Enable advanced prompt customization for better results')
                 .addToggle((toggle) =>
                     toggle
                         .setValue(commandOption.useCustomCommand)
@@ -636,6 +684,98 @@ export class AutoClassifierSettingTab extends PluginSettingTab {
 
                 new Setting(containerEl)
                     .setName('Custom Max Tokens (ChatGPT)')
+                    .setDesc("The maximum number of tokens that can be generated in the completion.")
+                    .setClass('setting-item-child')
+                    .addText((text) =>
+                        text
+                            .setPlaceholder('150')
+                            .setValue(String(commandOption.max_tokens))
+                            .onChange(async (value) => {
+                                commandOption.max_tokens = parseInt(value);
+                                await this.plugin.saveSettings();
+                            })
+                    );
+            }
+            // Custom template textarea
+            if (commandOption.useCustomCommand) {
+
+                // Different default template depending on useRef
+                if (commandOption.useRef) {
+                    if(commandOption.prmpt_template == DEFAULT_PROMPT_TEMPLATE_WO_REF) commandOption.prmpt_template = DEFAULT_PROMPT_TEMPLATE;
+                } else {
+                    if(commandOption.prmpt_template == DEFAULT_PROMPT_TEMPLATE) commandOption.prmpt_template = DEFAULT_PROMPT_TEMPLATE_WO_REF;
+                }
+
+                const customPromptTemplateEl = new Setting(containerEl)
+                    .setName('Custom Prompt Template')
+                    .setDesc('')
+                    .setClass('setting-item-child')
+                    .setClass('block-control-item')
+                    .setClass('height20-text-area')
+                    .addTextArea((text) =>
+                        text
+                            .setPlaceholder('Write custom prompt template.')
+                            .setValue(commandOption.prmpt_template)
+                            .onChange(async (value) => {
+                                commandOption.prmpt_template = value;
+                                await this.plugin.saveSettings();
+                            })
+                    )
+                    .addExtraButton(cb => {
+                        cb
+                            .setIcon('reset')
+                            .setTooltip('Restore to default')
+                            .onClick(async () => {
+                                // Different default template depending on useRef
+                                if (commandOption.useRef) commandOption.prmpt_template = DEFAULT_PROMPT_TEMPLATE;
+                                else commandOption.prmpt_template = DEFAULT_PROMPT_TEMPLATE_WO_REF;
+
+                                await this.plugin.saveSettings();
+                                this.display();
+                            })
+                    });
+                customPromptTemplateEl.descEl.createSpan({text: 'This plugin is based on the LLM response.'});
+                customPromptTemplateEl.descEl.createEl('br');
+                customPromptTemplateEl.descEl.createSpan({text: 'You can use your own template when making a request to the API.'});
+                customPromptTemplateEl.descEl.createEl('br');
+                customPromptTemplateEl.descEl.createEl('br');
+                customPromptTemplateEl.descEl.createSpan({text: 'Variables:'});
+                customPromptTemplateEl.descEl.createEl('br');
+                customPromptTemplateEl.descEl.createSpan({text: '- {{input}}: The text to classify will be inserted here.'});
+                customPromptTemplateEl.descEl.createEl('br');
+                customPromptTemplateEl.descEl.createSpan({text: '- {{reference}}: The reference tags will be inserted here.'});
+                customPromptTemplateEl.descEl.createEl('br');
+
+                const customChatRoleEl = new Setting(containerEl)
+                    .setName('Custom Chat Role')
+                    .setDesc('')
+                    .setClass('setting-item-child')
+                    .setClass('block-control-item')
+                    .setClass('height10-text-area')
+                    .addTextArea((text) =>
+                        text
+                            .setPlaceholder('Write custom chat role for system.')
+                            .setValue(commandOption.chat_role)
+                            .onChange(async (value) => {
+                                commandOption.chat_role = value;
+                                await this.plugin.saveSettings();
+                            })
+                    )
+                    .addExtraButton(cb => {
+                        cb
+                            .setIcon('reset')
+                            .setTooltip('Restore to default')
+                            .onClick(async () => {
+                                commandOption.chat_role = DEFAULT_CHAT_ROLE;
+                                await this.plugin.saveSettings();
+                                this.display();
+                            })
+                    });
+                    customChatRoleEl.descEl.createSpan({text: 'Define custom role for the AI system.'});
+
+
+                new Setting(containerEl)
+                    .setName('Custom Max Tokens')
                     .setDesc("The maximum number of tokens that can be generated in the completion.")
                     .setClass('setting-item-child')
                     .addText((text) =>
