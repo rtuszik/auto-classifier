@@ -184,7 +184,7 @@ export class AutoClassifierSettingTab extends PluginSettingTab {
             baseUrlSetting.createEl('div', { text: '• Local OpenAI-compatible API (Ollama, LocalAI):' });
             baseUrlSetting.createEl('div', { text: '   - Ollama: http://localhost:11434/v1' });
             baseUrlSetting.createEl('div', { text: '   - LocalAI: http://localhost:8080/v1' });
-            baseUrlSetting.createEl('div', { text: '   ⚠️ Ollama/LocalAI는 완벽한 호환성이 보장되지 않으므로 충분한 테스트가 필요.' });
+            baseUrlSetting.createEl('div', { text: '   ⚠️ Ollama/LocalAI are not fully compatible currently.' });
             baseUrlSetting.style.marginLeft = '20px';
             baseUrlSetting.style.fontSize = '0.9em';
             baseUrlSetting.style.color = 'var(--text-muted)';
@@ -207,7 +207,6 @@ export class AutoClassifierSettingTab extends PluginSettingTab {
             modelSetting.createEl('div', { text: 'Recommended for OpenAI: gpt-4.1-mini, gpt-4.1, gpt-4o' });
             modelSetting.createEl('div', { text: '• OpenAI: gpt-4.1-mini, gpt-4.1, gpt-4o' });
             modelSetting.createEl('div', { text: '• Local OpenAI-compatible API (Ollama, LocalAI): llama3, mistral, phi3, qwen2 등' });
-            modelSetting.createEl('div', { text: '  ⚠️ Ollama/LocalAI는 완벽한 호환성이 보장되지 않으므로 충분한 테스트가 필요.' });
             modelSetting.style.marginLeft = '20px';
             modelSetting.style.fontSize = '0.9em';
             modelSetting.style.color = 'var(--text-muted)';
