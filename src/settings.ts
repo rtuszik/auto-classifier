@@ -74,7 +74,7 @@ export const DEFAULT_SETTINGS: AutoClassifierSettings = {
     apiKeyCreatedAt: null,
     baseURL: 'https://api.openai.com/v1',
     classifierEngine: ClassifierEngine.ChatGPT, // Default to ChatGPT
-    jinaApiKey: 'jina_e24cf807496a48d9be7ea660bd652a37x2ZJYPjVDlgMU69KQvKSepRDbTgM', // Default Jina API Key
+    jinaApiKey: 'jina_***', // Default Jina API Key
     jinaBaseURL: 'https://api.jina.ai/v1', // Default Jina Base URL
     commandOption: {
         useRef: true,
@@ -93,7 +93,7 @@ export const DEFAULT_SETTINGS: AutoClassifierSettings = {
 
         chat_role: DEFAULT_CHAT_ROLE,
         prmpt_template: DEFAULT_PROMPT_TEMPLATE,
-        model: "gpt-3.5-turbo",
+        model: "gpt-4.1-mini", // 기본값 및 추천 모델
         max_tokens: 150,
         max_suggestions: 3,
     },
@@ -150,10 +150,10 @@ export class AutoClassifierSettingTab extends PluginSettingTab {
                         // Auto-set appropriate default models
                         if (this.plugin.settings.classifierEngine === ClassifierEngine.ChatGPT) {
                             if (!commandOption.model || commandOption.model === 'jina-embeddings-v3') {
-                                commandOption.model = 'gpt-3.5-turbo';
+                                commandOption.model = 'gpt-4.1-mini';
                             }
                         } else if (this.plugin.settings.classifierEngine === ClassifierEngine.JinaAI) {
-                            if (!commandOption.model || commandOption.model === 'gpt-3.5-turbo') {
+                            if (!commandOption.model || commandOption.model === 'gpt-4.1-mini' || commandOption.model === 'gpt-4o' || commandOption.model === 'gpt-4.1') {
                                 commandOption.model = 'jina-embeddings-v3';
                             }
                         }
@@ -181,9 +181,10 @@ export class AutoClassifierSettingTab extends PluginSettingTab {
             const baseUrlSetting = containerEl.createDiv();
             baseUrlSetting.createEl('div', { text: 'Common configurations:' });
             baseUrlSetting.createEl('div', { text: '• OpenAI: https://api.openai.com/v1' });
-            baseUrlSetting.createEl('div', { text: '• Ollama: http://localhost:11434/v1' });
-            baseUrlSetting.createEl('div', { text: '• LocalAI: http://localhost:8080/v1' });
-            baseUrlSetting.createEl('div', { text: '• Groq: https://api.groq.com/openai/v1' });
+            baseUrlSetting.createEl('div', { text: '• Local OpenAI-compatible API (Ollama, LocalAI):' });
+            baseUrlSetting.createEl('div', { text: '   - Ollama: http://localhost:11434/v1' });
+            baseUrlSetting.createEl('div', { text: '   - LocalAI: http://localhost:8080/v1' });
+            baseUrlSetting.createEl('div', { text: '   ⚠️ Ollama/LocalAI는 완벽한 호환성이 보장되지 않으므로 충분한 테스트가 필요.' });
             baseUrlSetting.style.marginLeft = '20px';
             baseUrlSetting.style.fontSize = '0.9em';
             baseUrlSetting.style.color = 'var(--text-muted)';
@@ -191,11 +192,11 @@ export class AutoClassifierSettingTab extends PluginSettingTab {
 
             new Setting(containerEl)
                 .setName('Model')
-                .setDesc("Model ID to use for classification")
+                .setDesc("Model ID to use for classification. (Recommended: gpt-4.1-mini, gpt-4.1, gpt-4o)")
                 .addText((text) =>
                     text
-                        .setPlaceholder('gpt-3.5-turbo')
-                        .setValue(commandOption.model) // Assuming commandOption.model is for ChatGPT
+                        .setPlaceholder('gpt-4.1-mini')
+                        .setValue(commandOption.model)
                         .onChange(async (value) => {
                             commandOption.model = value;
                             await this.plugin.saveSettings();
@@ -203,11 +204,10 @@ export class AutoClassifierSettingTab extends PluginSettingTab {
                 );
             
             const modelSetting = containerEl.createDiv();
-            modelSetting.createEl('div', { text: 'Common model examples:' });
-            modelSetting.createEl('div', { text: '• OpenAI: gpt-4o, gpt-4o-mini, gpt-4.1, ...' });
-            modelSetting.createEl('div', { text: '• Ollama: llama3, mistral, phi3, qwen2, ...' });
-            modelSetting.createEl('div', { text: '• LocalAI: Use model names from your setup' });
-            modelSetting.createEl('div', { text: '• Groq: llama-3.1-8b-instant, mixtral-8x7b-32768' });
+            modelSetting.createEl('div', { text: 'Recommended for OpenAI: gpt-4.1-mini, gpt-4.1, gpt-4o' });
+            modelSetting.createEl('div', { text: '• OpenAI: gpt-4.1-mini, gpt-4.1, gpt-4o' });
+            modelSetting.createEl('div', { text: '• Local OpenAI-compatible API (Ollama, LocalAI): llama3, mistral, phi3, qwen2 등' });
+            modelSetting.createEl('div', { text: '  ⚠️ Ollama/LocalAI는 완벽한 호환성이 보장되지 않으므로 충분한 테스트가 필요.' });
             modelSetting.style.marginLeft = '20px';
             modelSetting.style.fontSize = '0.9em';
             modelSetting.style.color = 'var(--text-muted)';
@@ -225,7 +225,7 @@ export class AutoClassifierSettingTab extends PluginSettingTab {
                             this.plugin.saveSettings();
                         })
                 )
-            apiKeySetting.descEl.createSpan({ text: 'Enter your API key. Required for OpenAI, Groq, etc. Leave empty for local AI (Ollama, LocalAI). ' });
+            apiKeySetting.descEl.createSpan({ text: 'Enter your API key. Required for OpenAI and etc. Leave empty for local AI (Ollama, LocalAI). ' });
             apiKeySetting.descEl.createEl('a', { href: 'https://platform.openai.com/account/api-keys', text: 'Get OpenAI API key' })
             const apiTestMessageEl = document.createElement('div');
             apiKeySetting.descEl.appendChild(apiTestMessageEl);
