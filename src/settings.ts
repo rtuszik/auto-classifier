@@ -55,7 +55,7 @@ export interface CommandOption {
     prmpt_template: string;
     model: string;
     max_tokens: number;
-    max_suggestions: number;
+ㅋ    max_suggestions: number;
 }
 
 
