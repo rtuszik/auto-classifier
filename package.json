@@ -1,15 +1,15 @@
 {
 	"name": "auto-classifier",
-	"version": "1.1.2",
-	"description": "This plugin automatically classify tag from your notes using ChatGPT API. It analyze your note (It can be title, frontmatter, content or selected area) and automatically insert tag where you set.",
+	"version": "1.3.0",
+	"description": "This plugin automatically classify tag from your notes using OpenAI-compatible APIs (ChatGPT, Ollama, LocalAI) or Jina AI Classifier. It analyze your note (It can be title, frontmatter, content or selected area) and automatically insert tag where you set.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"version": "node version-bump.mjs && git add manifest.json versions.json"
 	},
-	"keywords": [],
-	"author": "",
+	"keywords": ["obsidian", "plugin", "classification", "tags", "ai", "chatgpt", "jina", "automation"],
+	"author": "Hyeonseo Nam",
 	"license": "MIT",
 	"devDependencies": {
 		"@types/node": "^16.11.6",
