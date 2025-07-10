@@ -26,9 +26,9 @@
     
     -   **For Jina AI:**
         -   Enter your Jina AI API key (free tier available with 10M tokens)
-        -   Optionally set a custom base URL
         -   Choose your preferred model (default: jina-embeddings-v3)
-        -   Test your configuration using the Test Jina API button
+        -   Test your configuration using the Test Jina API button 
+        -   **Getting a Jina AI API Key**: Visit the [Jina AI website](https://jina.ai/) to obtain a free temporary API key (you can get the key without creating an account).
 
 -   This plugin consists of **4 Input Commands** that you can run. By simply running these commands, it will automatically classify your note:
 
@@ -145,9 +145,13 @@ Convert the blank spaces to "_" in the output.
 
 If you encounter any issues while using this plugin or have suggestions for improvement, please feel free to submit an issue on the GitHub repository. Pull requests are also welcome.
 
-## Authors
+## 🙌 Contributors
 
-Hyeonseo Nam
+- @gravityfargo
+- @rtuszik
+- @tk42
+- @SophomoreSo
+- @ThiagoVsky 
 
 ## License
 
