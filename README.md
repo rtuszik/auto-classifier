@@ -60,6 +60,14 @@
 
 ## Classification Engines
 
+## New: Generate Filenames for Notes
+
+- Right-click a Markdown file in the File Explorer and choose "Generate filename (Auto Classifier)" to get a suggested filename based on the note's title and content.
+- Or use the Command Palette: "Generate filename for current note".
+- Currently supported with the OpenAI-compatible API path. If your engine is set to Jina AI, you'll get a notice that filename generation is not yet supported there.
+- Suggestions are sanitized for filesystem safety and made unique within the target folder ("name 2.md", "name 3.md", ... if needed).
+
+
 ### OpenAI-compatible API
 - **Flexibility**: Supports custom prompts and chat roles
 - **Multiple Providers**: Works with OpenAI, Ollama, LocalAI, and other compatible APIs

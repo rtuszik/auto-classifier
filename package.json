@@ -1,6 +1,6 @@
 {
 	"name": "auto-classifier",
-	"version": "1.3.0",
+	"version": "1.4.0",
 	"description": "This plugin automatically classify tag from your notes using OpenAI-compatible APIs (ChatGPT, Ollama, LocalAI) or Jina AI Classifier. It analyze your note (It can be title, frontmatter, content or selected area) and automatically insert tag where you set.",
 	"main": "main.js",
 	"scripts": {
