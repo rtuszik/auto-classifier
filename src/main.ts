@@ -1,4 +1,4 @@
-import { Plugin, Notice } from "obsidian";
+import { Plugin, Notice, TFile } from "obsidian";
 import {
 	AutoClassifierSettingTab,
 	AutoClassifierSettings,
@@ -54,6 +54,33 @@ export default class AutoClassifierPlugin extends Plugin {
 				await this.runClassifyTag(InputType.Content);
 			},
 		});
+
+
+			// Context menu: File explorer right-click
+			this.registerEvent(
+				this.app.workspace.on("file-menu", (menu, file) => {
+					if (file instanceof TFile && file.extension === "md") {
+						menu.addItem((item) => {
+							item
+								.setTitle("Generate filename (Auto Classifier)")
+								.setIcon("wand")
+								.onClick(async () => {
+									await this.generateFilenameForFile(file);
+								});
+						});
+					}
+				})
+			);
+
+			// Command palette: for current note
+			this.addCommand({
+				id: "generate-filename-current-note",
+				name: "Generate filename for current note",
+				callback: async () => {
+					const file = this.app.workspace.getActiveFile();
+					if (file) await this.generateFilenameForFile(file);
+				},
+			});
 
 		this.addSettingTab(new AutoClassifierSettingTab(this.app, this));
 	}
@@ -260,6 +287,7 @@ export default class AutoClassifierPlugin extends Plugin {
 						resOutput,
 						commandOption.overwrite,
 						commandOption.outPrefix,
+
 						commandOption.outSuffix,
 					);
 				}
@@ -287,5 +315,70 @@ export default class AutoClassifierPlugin extends Plugin {
 			console.error(`${engineName} API Error:`, error);
 			return null;
 		}
+	}
+
+
+
+
+
+		// Generate filename for a given file
+		private async generateFilenameForFile(file: TFile) {
+			const loading = this.createLoadingNotice(`${this.manifest.name}: Generating filename..`);
+			try {
+				// Read file content
+				const fileContent = await this.app.vault.read(file);
+				// Remove frontmatter if present
+				let content = fileContent;
+				const cache = this.app.metadataCache.getFileCache(file);
+				if (cache?.frontmatter) {
+					content = fileContent.split('---').slice(2).join('---');
+				}
+
+				// Use title + content snippet as input
+				const title = file.basename;
+				const snippet = content.slice(0, 2000);
+				const input = `Title: ${title}\nContent:\n${snippet}`;
+
+				const currentEngine = this.settings.classifierEngine;
+
+				let suggestion = '';
+				if (currentEngine === ClassifierEngine.ChatGPT) {
+					const system = 'You generate concise, filesystem-safe filenames. Return only plain text without quotes or code fences.';
+					const prompt = `Propose a short, descriptive filename for the following Obsidian note.\nRules:\n- Use letters, numbers, hyphens, and spaces only.\n- No extension.\n- 60 chars max.\n- Avoid duplicates of current title if possible.\n\nNote:\n${input}`;
+					const raw = await ChatGPT.callAPI(system, prompt, this.settings.apiKey, this.settings.commandOption.model, 50, 0.2, 0.95, 0, 0.2, this.settings.baseURL);
+					suggestion = raw.trim().replace(/^```[\s\S]*?\n|```$/g, '').replace(/["\/<>:\\|?*]/g, '').slice(0, 60);
+				} else if (currentEngine === ClassifierEngine.JinaAI) {
+					new Notice(`⛔ ${this.manifest.name}: Filename generation is not yet supported with Jina AI.`);
+					loading.hide();
+					return;
+				}
+
+				if (!suggestion) {
+					new Notice(`⛔ ${this.manifest.name}: No filename suggestion.`);
+					loading.hide();
+					return;
+				}
+
+				// Ensure unique within vault and rename
+				let newName = suggestion.trim();
+				newName = newName.replace(/["\/<>:\\|?*]/g, '');
+				if (!newName) newName = file.basename;
+				const targetPath = this.app.fileManager.getNewFileParent(file.path).path + '/' + newName + '.' + file.extension;
+				let uniquePath = targetPath;
+				let counter = 2;
+				while (this.app.vault.getAbstractFileByPath(uniquePath)) {
+					uniquePath = this.app.fileManager.getNewFileParent(file.path).path + '/' + newName + ` ${counter}.` + file.extension;
+					counter++;
+				}
+				await this.app.fileManager.renameFile(file, uniquePath);
+				new Notice(`✅ ${this.manifest.name}: Renamed to "${newName}"`);
+			} catch (e) {
+				console.error('Generate filename error:', e);
+				new Notice(`⛔ ${this.manifest.name}: Failed to generate filename`);
+			} finally {
+				loading.hide();
+			}
+		}
+
 	}
 }
